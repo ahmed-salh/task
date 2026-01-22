@@ -1,10 +1,11 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System.Collections;
 
 /// <summary>
 /// Controls a 2x2 grid of colored squares that can expand and shrink.
 /// When one square expands, the others shrink proportionally to maintain the grid layout.
 /// Supports resetting back to equal division of space.
+/// Uses sine ease-out for smooth, natural-feeling animations.
 /// </summary>
 public class QuadScaler : MonoBehaviour
 {
@@ -26,7 +27,7 @@ public class QuadScaler : MonoBehaviour
     [Header("Initial Layout")]
     [Range(0.1f, 0.9f)]
     [Tooltip("What percentage of the container each square takes up initially (0.5 = 50% = equal division)")]
-    private readonly float initialDivision = 0.5f;
+    public float initialDivision = 0.5f;
 
     [Header("Behavior")]
     [Range(0.5f, 0.95f)]
@@ -136,6 +137,26 @@ public class QuadScaler : MonoBehaviour
     private Vector2 Size(float width, float height)
     {
         return new Vector2(width, height);
+    }
+
+    #endregion
+
+    #region Easing Functions
+
+    /// <summary>
+    /// Sine ease-out function for smooth deceleration
+    /// Starts fast and gradually slows down as it approaches the target
+    /// Mathematical formula: sin(t * π/2)
+    /// </summary>
+    /// <param name="t">Progress from 0.0 to 1.0</param>
+    /// <returns>Eased value from 0.0 to 1.0</returns>
+    private float EaseSineOut(float t)
+    {
+        // Convert linear progress (0->1) into a smooth curve
+        // At t=0: result=0 (starts at beginning)
+        // At t=0.5: result≈0.707 (more than halfway - fast start)
+        // At t=1: result=1 (ends at target - slow finish)
+        return Mathf.Sin(t * Mathf.PI * 0.5f);
     }
 
     #endregion
@@ -257,7 +278,7 @@ public class QuadScaler : MonoBehaviour
 
     /// <summary>
     /// Coroutine that smoothly animates all squares to their target sizes over the specified duration
-    /// Uses a time-based approach for consistent animation speed regardless of distance
+    /// Uses sine ease-out for a natural deceleration effect (starts fast, ends slow)
     /// </summary>
     private IEnumerator Animate()
     {
@@ -270,22 +291,28 @@ public class QuadScaler : MonoBehaviour
             // Increment elapsed time by the time since last frame
             elapsedTime += Time.deltaTime;
 
-            // Calculate the progress percentage (0.0 to 1.0)
+            // Calculate the linear progress percentage (0.0 to 1.0)
             // Clamped to ensure we don't go over 1.0 due to frame timing
-            float t = Mathf.Clamp01(elapsedTime / animationDuration);
+            float linearT = Mathf.Clamp01(elapsedTime / animationDuration);
 
-            // Animate all squares based on the progress percentage
-            red.sizeDelta = Vector2.Lerp(redStart, redTarget, t);
-            green.sizeDelta = Vector2.Lerp(greenStart, greenTarget, t);
-            blue.sizeDelta = Vector2.Lerp(blueStart, blueTarget, t);
-            yellow.sizeDelta = Vector2.Lerp(yellowStart, yellowTarget, t);
+            // Apply sine ease-out to create smooth deceleration
+            // This transforms the linear progress into a curved progress
+            // Result: animation starts fast and gradually slows down
+            float easedT = EaseSineOut(linearT);
+
+            // Animate all squares using the eased progress value
+            // The ease function makes the movement feel more natural and polished
+            red.sizeDelta = Vector2.Lerp(redStart, redTarget, easedT);
+            green.sizeDelta = Vector2.Lerp(greenStart, greenTarget, easedT);
+            blue.sizeDelta = Vector2.Lerp(blueStart, blueTarget, easedT);
+            yellow.sizeDelta = Vector2.Lerp(yellowStart, yellowTarget, easedT);
 
             // Wait for the next frame before continuing
             yield return null;
         }
 
         // Ensure all squares end up exactly at their target sizes
-        // This prevents floating-point precision issues
+        // This prevents floating-point precision issues from the easing function
         red.sizeDelta = redTarget;
         green.sizeDelta = greenTarget;
         blue.sizeDelta = blueTarget;
