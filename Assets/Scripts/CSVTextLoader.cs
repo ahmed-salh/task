@@ -27,7 +27,7 @@ public class CSVTextLoader : MonoBehaviour
     void LoadCSV()
     {
         // Load the CSV file from Resources folder
-        TextAsset csvFile = Resources.Load<TextAsset>($"CSV/{csvFileName}");
+        TextAsset csvFile = Resources.Load<TextAsset>($"StreamingAssets/{csvFileName}");
 
         if (csvFile == null)
         {
