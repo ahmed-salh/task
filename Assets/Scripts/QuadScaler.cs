@@ -26,15 +26,15 @@ public class QuadScaler : MonoBehaviour
     [Header("Initial Layout")]
     [Range(0.1f, 0.9f)]
     [Tooltip("What percentage of the container each square takes up initially (0.5 = 50% = equal division)")]
-    public float initialDivision = 0.5f;
+    private readonly float initialDivision = 0.5f;
 
     [Header("Behavior")]
     [Range(0.5f, 0.95f)]
     [Tooltip("How much of the container the expanded square should take up (0.9 = 90%)")]
     public float expandedRatio = 0.9f;
 
-    [Tooltip("Speed of the size transition animation (higher = faster)")]
-    public float animationSpeed = 8f;
+    [Tooltip("Duration of the animation in seconds (e.g., 1.0 = one second)")]
+    public float animationDuration = 1f;
 
     #endregion
 
@@ -45,6 +45,12 @@ public class QuadScaler : MonoBehaviour
 
     // Reference to the currently running animation coroutine
     private Coroutine animationRoutine;
+
+    // Starting sizes for each square when animation begins
+    private Vector2 redStart;
+    private Vector2 greenStart;
+    private Vector2 blueStart;
+    private Vector2 yellowStart;
 
     // Target sizes for each square (what size they're animating towards)
     private Vector2 redTarget;
@@ -227,6 +233,12 @@ public class QuadScaler : MonoBehaviour
     /// <param name="yellow">Target size for yellow square</param>
     private void SetTargets(Vector2 red, Vector2 green, Vector2 blue, Vector2 yellow)
     {
+        // Store the current sizes as starting points for the animation
+        redStart = this.red.sizeDelta;
+        greenStart = this.green.sizeDelta;
+        blueStart = this.blue.sizeDelta;
+        yellowStart = this.yellow.sizeDelta;
+
         // Store the target sizes
         redTarget = red;
         greenTarget = green;
@@ -244,53 +256,40 @@ public class QuadScaler : MonoBehaviour
     }
 
     /// <summary>
-    /// Coroutine that smoothly animates all squares to their target sizes
-    /// Runs every frame until all squares reach their targets
+    /// Coroutine that smoothly animates all squares to their target sizes over the specified duration
+    /// Uses a time-based approach for consistent animation speed regardless of distance
     /// </summary>
     private IEnumerator Animate()
     {
-        while (true)
+        // Track how much time has elapsed since the animation started
+        float elapsedTime = 0f;
+
+        // Continue animating until the full duration has passed
+        while (elapsedTime < animationDuration)
         {
-            // Track whether all squares have finished animating
-            bool allSquaresFinished = true;
+            // Increment elapsed time by the time since last frame
+            elapsedTime += Time.deltaTime;
 
-            // Animate each square and check if it's done
-            // The &= operator combines the results (all must be true)
-            allSquaresFinished &= AnimateSquare(red, redTarget);
-            allSquaresFinished &= AnimateSquare(green, greenTarget);
-            allSquaresFinished &= AnimateSquare(blue, blueTarget);
-            allSquaresFinished &= AnimateSquare(yellow, yellowTarget);
+            // Calculate the progress percentage (0.0 to 1.0)
+            // Clamped to ensure we don't go over 1.0 due to frame timing
+            float t = Mathf.Clamp01(elapsedTime / animationDuration);
 
-            // If all squares are finished, exit the coroutine
-            if (allSquaresFinished)
-            {
-                yield break;
-            }
+            // Animate all squares based on the progress percentage
+            red.sizeDelta = Vector2.Lerp(redStart, redTarget, t);
+            green.sizeDelta = Vector2.Lerp(greenStart, greenTarget, t);
+            blue.sizeDelta = Vector2.Lerp(blueStart, blueTarget, t);
+            yellow.sizeDelta = Vector2.Lerp(yellowStart, yellowTarget, t);
 
-            // Wait for the next frame before continuing the animation
+            // Wait for the next frame before continuing
             yield return null;
         }
-    }
 
-    /// <summary>
-    /// Animates a single square towards its target size using smooth interpolation
-    /// </summary>
-    /// <param name="square">The RectTransform to animate</param>
-    /// <param name="targetSize">The size to animate towards</param>
-    /// <returns>True if the square has reached its target (within 0.5 pixels), false otherwise</returns>
-    private bool AnimateSquare(RectTransform square, Vector2 targetSize)
-    {
-        // Smoothly interpolate from current size to target size
-        // Lerp creates smooth easing, with speed controlled by animationSpeed
-        square.sizeDelta = Vector2.Lerp(
-            square.sizeDelta,                    // Current size
-            targetSize,                          // Target size
-            Time.deltaTime * animationSpeed      // Interpolation factor (smooth over time)
-        );
-
-        // Check if we're close enough to the target (within 0.5 pixels)
-        // This prevents infinite tiny movements and allows the animation to finish
-        return Vector2.Distance(square.sizeDelta, targetSize) < 0.5f;
+        // Ensure all squares end up exactly at their target sizes
+        // This prevents floating-point precision issues
+        red.sizeDelta = redTarget;
+        green.sizeDelta = greenTarget;
+        blue.sizeDelta = blueTarget;
+        yellow.sizeDelta = yellowTarget;
     }
 
     #endregion
